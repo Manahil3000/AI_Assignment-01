@@ -13,18 +13,16 @@ class Node:
     def __lt__(self, other):
         return self.f < other.f
 
-# Updated Heuristic: Octile Distance (Best for 8-way movement)
+# Heuristic: Manhattan Distance 
 def heuristic(a, b):
-    dx = abs(a[0] - b[0])
-    dy = abs(a[1] - b[1])
-    # Straight moves cost 1, diagonal moves cost sqrt(2)
-    return (dx + dy) + (math.sqrt(2) - 2) * min(dx, dy)
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 # A* algorithm
 def astar(grid, start, goal):
     rows, cols = len(grid), len(grid[0])
     open_list = []
-    closed_set = set()
+    # We store the best g-cost for each position to avoid redundant processing
+    best_g = {start: 0}
     
     heapq.heappush(open_list, Node(start, None, 0, heuristic(start, goal)))
     
@@ -33,40 +31,28 @@ def astar(grid, start, goal):
         
         if current.position == goal:
             return reconstruct_path(current)
-            
-        closed_set.add(current.position)
 
-        # 8-way movement: (row_change, col_change, cost)
-        moves = [
-            (-1, 0, 1), (1, 0, 1), (0, -1, 1), (0, 1, 1),       # Cardinal
-            (-1, -1, 1.414), (-1, 1, 1.414), (1, -1, 1.414), (1, 1, 1.414) # Diagonal
-        ]
+        # 4-way movement: Up, Down, Left, Right (all cost 1)
+        moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-        for dr, dc, cost in moves:
+        for dr, dc in moves:
             r = current.position[0] + dr
             c = current.position[1] + dc
             next_pos = (r, c)
 
             # Boundary checks
-            if r < 0 or r >= rows or c < 0 or c >= cols:
-                continue
-            
-            # Obstacle/Fire check
-            if grid[r][c] in ['#', 'F']:
-                continue
-                
-            if next_pos in closed_set:
-                continue
-
-            # Blocks diagonal movement if passing between two touching obstacles
-            if dr != 0 and dc != 0:
-                if grid[current.position[0] + dr][current.position[1]] in ['#', 'F'] and \
-                   grid[current.position[0]][current.position[1] + dc] in ['#', 'F']:
+            if 0 <= r < rows and 0 <= c < cols:
+                # Obstacle/Fire check 
+                if grid[r][c] in ['#', 'F']:
                     continue
 
-            g = current.g + cost
-            h = heuristic(next_pos, goal)
-            heapq.heappush(open_list, Node(next_pos, current, g, h))
+                new_g = current.g + 1
+                
+                # If we found a shorter path to this neighbor, or haven't visited it:
+                if next_pos not in best_g or new_g < best_g[next_pos]:
+                    best_g[next_pos] = new_g
+                    h = heuristic(next_pos, goal)
+                    heapq.heappush(open_list, Node(next_pos, current, new_g, h))
 
     return None
 
@@ -81,8 +67,10 @@ def reconstruct_path(node):
 # Dynamic Replanning Function
 def dynamic_astar(grid, start, goal, new_fire_cells):
     current_position = start
-    print(f"Initial Planning from {current_position}...")
+    # Copy fire cells to avoid modifying the input list outside
+    fires = list(new_fire_cells)
     
+    print(f"Initial Planning from {current_position}...")
     current_path = astar(grid, current_position, goal)
     
     if not current_path:
@@ -95,12 +83,12 @@ def dynamic_astar(grid, start, goal, new_fire_cells):
     while i < len(current_path):
         next_step = current_path[i]
         
-        if next_step in new_fire_cells:
+        if next_step in fires:
             print(f"!!! Fire detected at {next_step}. STOPPING at {current_position} to Replan...")
             
             r, c = next_step
             grid[r][c] = 'F'
-            new_fire_cells.remove(next_step)
+            fires.remove(next_step)
             
             new_plan = astar(grid, current_position, goal)
             
@@ -112,6 +100,7 @@ def dynamic_astar(grid, start, goal, new_fire_cells):
             i = 1 
             print(f"New path calculated: {current_path}")
             continue             
+            
         current_position = next_step
         final_executed_path.append(current_position)
         i += 1

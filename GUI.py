@@ -436,4 +436,3 @@ with right_col:
     if st.button("  Clear All"):
         init_state(st.session_state.rows, st.session_state.cols)
         st.rerun()
-

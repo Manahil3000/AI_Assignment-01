@@ -81,10 +81,10 @@ Use the sidebar panel to paint cells:
 
   Symbol   Meaning
   -------- ---------
-  S        Start
-  E        Goal
-  \#       Wall
-  F        Fire
+  S        Start 
+  E        Goal 
+  \#       Wall 
+  F        Fire 
 
 ------------------------------------------------------------------------
 
